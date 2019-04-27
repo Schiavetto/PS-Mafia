@@ -76,8 +76,7 @@ let BattleScripts = {
 				this.singleEvent('End', this.getAbility('Illusion'), pokemon.abilityData, pokemon);
 			}
 			this.add('-zpower', pokemon);
-			// @ts-ignore pokemon.zMoveUsed only exists in this mod
-			pokemon.zMoveUsed = true;
+			pokemon.m.zMoveUsed = true;
 		}
 		let moveDidSomething = this.useMove(baseMove, pokemon, target, sourceEffect, zMove);
 		if (this.activeMove) move = this.activeMove;
@@ -87,12 +86,10 @@ let BattleScripts = {
 		// Dancer's activation order is completely different from any other event, so it's handled separately
 		if (move.flags['dance'] && moveDidSomething && !move.isExternal) {
 			let dancers = [];
-			for (const side of this.sides) {
-				for (const currentPoke of side.active) {
-					if (!currentPoke || !currentPoke.hp || pokemon === currentPoke) continue;
-					if (currentPoke.hasAbility('dancer') && !currentPoke.isSemiInvulnerable()) {
-						dancers.push(currentPoke);
-					}
+			for (const currentPoke of this.getAllActive()) {
+				if (pokemon === currentPoke) continue;
+				if (currentPoke.hasAbility('dancer') && !currentPoke.isSemiInvulnerable()) {
+					dancers.push(currentPoke);
 				}
 			}
 			// Dancer activates in order of lowest speed stat to highest
@@ -185,8 +182,7 @@ let BattleScripts = {
 	},
 	// Modded to allow each Pokemon on a team to use a Z move once per battle
 	canZMove(pokemon) {
-		// @ts-ignore pokemon.zMoveUsed only exists in this mod
-		if (pokemon.zMoveUsed || (pokemon.transformed && (pokemon.template.isMega || pokemon.template.isPrimal || pokemon.template.forme === "Ultra"))) return;
+		if (pokemon.m.zMoveUsed || (pokemon.transformed && (pokemon.template.isMega || pokemon.template.isPrimal || pokemon.template.forme === "Ultra"))) return;
 		let item = pokemon.getItem();
 		if (!item.zMove) return;
 		if (item.zMoveUser && !item.zMoveUser.includes(pokemon.template.species)) return;
@@ -293,25 +289,10 @@ let BattleScripts = {
 	pokemon: {
 		getActionSpeed() {
 			let speed = this.getStat('spe', false, false);
-			if (speed > 10000) speed = 10000;
-			if (this.battle.field.getPseudoWeather('trickroom') || this.battle.field.getPseudoWeather('triviaroom') || this.battle.field.getPseudoWeather('alienwave')) {
+			if (this.battle.field.getPseudoWeather('trickroom') || this.battle.field.getPseudoWeather('alienwave')) {
 				speed = 0x2710 - speed;
 			}
-			return speed & 0x1FFF;
-		},
-		isGrounded(negateImmunity = false) {
-			if ('gravity' in this.battle.field.pseudoWeather) return true;
-			if ('ingrain' in this.volatiles && this.battle.gen >= 4) return true;
-			if ('smackdown' in this.volatiles) return true;
-			let item = (this.ignoringItem() ? '' : this.item);
-			if (item === 'ironball') return true;
-			// If a Fire/Flying type uses Burn Up and Roost, it becomes ???/Flying-type, but it's still grounded.
-			if (!negateImmunity && this.hasType('Flying') && !('roost' in this.volatiles)) return false;
-			if (this.hasAbility('levitate') && !this.battle.suppressingAttackEvents()) return null;
-			if ('magnetrise' in this.volatiles) return false;
-			if ('telekinesis' in this.volatiles) return false;
-			if ('triviaroom' in this.battle.field.pseudoWeather && this.name === 'Bimp' && !this.illusion) return false;
-			return item !== 'airballoon';
+			return this.battle.trunc(speed, 13);
 		},
 	},
 };
